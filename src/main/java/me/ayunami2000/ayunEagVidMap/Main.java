@@ -1,6 +1,5 @@
 package me.ayunami2000.ayunEagVidMap;
 
-import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -9,12 +8,15 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
 
 public class Main extends JavaPlugin implements CommandExecutor, Listener {
+    //todo: add queue command + store audio loc world & dont send to players in other worlds
+
     private VideoMapPacketCodecBukkit videoMapCodec = null;
     private int[][] mapIds;
-    private Location audioLoc;
-    private String url;
+    private Vector audioLoc = new Vector(0, 100, 0);
+    private String url = null;
 
     @Override
     public void onEnable(){
@@ -93,7 +95,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                         sender.sendMessage("you are not in game! you must specify the coordinates to use this command from console...");
                         break;
                     }
-                    audioLoc = ((Player) sender).getLocation();
+                    audioLoc = ((Player) sender).getLocation().toVector();
                 } else {
                     double x,y,z;
                     try {
