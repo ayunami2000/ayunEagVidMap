@@ -1,0 +1,9 @@
+name: ayunEagVidMap
+version: 1.0
+main: me.ayunami2000.ayunEagVidMap.Main
+commands:
+  ayunvid:
+    description: Control ayunEagVidMap
+    usage: /<command>
+    permission: ayuneagvidmap.control
+#todo: separate play, pause, and add queue

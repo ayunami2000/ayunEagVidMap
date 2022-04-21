@@ -1,0 +1,12 @@
+# URL of video to play
+url: ""
+# screen size
+width: 3
+height: 2
+# map ID offset
+offset: 0
+# audio location
+audio:
+  x: 0
+  y: 100
+  z: 0
