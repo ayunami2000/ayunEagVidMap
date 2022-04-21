@@ -14,9 +14,8 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     //todo: add queue command + store audio loc world & dont send to players in other worlds
 
     private VideoMapPacketCodecBukkit videoMapCodec = null;
-    private int[][] mapIds;
     private Vector audioLoc = new Vector(0, 100, 0);
-    private String url = null;
+    private String url = "";
 
     @Override
     public void onEnable(){
@@ -52,7 +51,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     }
 
     private void setSize(int width, int height) {
-        mapIds = new int[height][width];
+        int[][] mapIds = new int[height][width];
         int offset = this.getConfig().getInt("offset");
         for (int y = 0; y < mapIds.length; y++) {
             for (int x = 0; x < mapIds[y].length; x++) {
