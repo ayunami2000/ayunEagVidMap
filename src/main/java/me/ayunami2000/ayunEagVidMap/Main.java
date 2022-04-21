@@ -16,6 +16,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     private VideoMapPacketCodecBukkit videoMapCodec = null;
     private Vector audioLoc = new Vector(0, 100, 0);
     private String url = "";
+    private boolean urlChanged = true;
 
     @Override
     public void onEnable(){
@@ -31,23 +32,19 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
     @Override
     public void onDisable(){
-        videoMapCodec.disableVideoBukkit();
+        sendToAllPlayers(videoMapCodec.disableVideoBukkit());
     }
 
     private void syncToPlayer(Player player) {
-        VideoMapPacketCodecBukkit.nativeSendPacketToPlayer(player, videoMapCodec.syncPlaybackWithPlayersBukkit());
+        videoMapCodec.syncPlaybackWithPlayersBukkit().send(player);
     }
 
     private void syncToAllPlayers() {
-        for (Player player : this.getServer().getOnlinePlayers()) {
-            syncToPlayer(player);
-        }
+        videoMapCodec.syncPlaybackWithPlayersBukkit().send(this.getServer().getOnlinePlayers());
     }
 
     private void sendToAllPlayers(VideoMapPacketCodecBukkit.VideoMapPacket p) {
-        for (Player player : this.getServer().getOnlinePlayers()) {
-            VideoMapPacketCodecBukkit.nativeSendPacketToPlayer(player, p);
-        }
+        p.send(this.getServer().getOnlinePlayers());
     }
 
     private void setSize(int width, int height) {
@@ -82,9 +79,15 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 this.getConfig().set("url", args[1]);
                 this.saveConfig();
                 url = args[1];
-                sendToAllPlayers(videoMapCodec.beginPlaybackBukkit(url, true, Integer.MAX_VALUE / 1000.0f));
+                urlChanged = true;
                 sender.sendMessage("seturl");
                 break;
+            case "a":
+            case "aud":
+            case "audio":
+            case "audloc":
+            case "audioloc":
+            case "audiolocation":
             case "l":
             case "loc":
             case "location":
@@ -109,15 +112,25 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                     audioLoc.setY(y);
                     audioLoc.setZ(z);
                 }
-                syncToAllPlayers();
+                this.getConfig().set("audio.x", audioLoc.getX());
+                this.getConfig().set("audio.y", audioLoc.getY());
+                this.getConfig().set("audio.z", audioLoc.getZ());
+                this.saveConfig();
+                float ct = videoMapCodec.getPlaybackTime();
+                sendToAllPlayers(videoMapCodec.moveAudioSourceBukkit(audioLoc.getX(), audioLoc.getY(), audioLoc.getZ(), 0.5f));
+                sendToAllPlayers(videoMapCodec.setPlaybackTimeBukkit(ct));
                 sender.sendMessage("set location of audio");
                 break;
             case "p":
             case "play":
             case "pause":
                 sender.sendMessage("resuming & loading if needed, or pausing");
-                if (videoMapCodec.isPaused()) {
-                    sendToAllPlayers(videoMapCodec.beginPlaybackBukkit(url, true, Integer.MAX_VALUE / 1000.0f));
+                if (urlChanged || videoMapCodec.isPaused()) {
+                    if (urlChanged) {
+                        urlChanged = false;
+                        sendToAllPlayers(videoMapCodec.beginPlaybackBukkit(url, true, Integer.MAX_VALUE / 1000.0f));
+                    }
+                    sendToAllPlayers(videoMapCodec.setPausedBukkit(false));
                 } else {
                     sendToAllPlayers(videoMapCodec.setPausedBukkit(true));
                 }
