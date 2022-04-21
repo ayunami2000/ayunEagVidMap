@@ -13,8 +13,8 @@ import org.bukkit.util.Vector;
 
 public class Main extends JavaPlugin implements CommandExecutor, Listener {
     //todo: add queue command + store audio loc world & dont send to players in other worlds???
+    //todo: or like detect where map is placed in world via entities and then per player play audio from the nearest one to them??
     //todo: also when holding video map play audio at player location for that player
-    //todo: reload config command
 
     public static Main plugin;
 
@@ -36,13 +36,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     public void onEnable(){
         MessageHandler.initMessages();
         this.saveDefaultConfig();
-        audioLoc.setX(this.getConfig().getDouble("audio.x"));
-        audioLoc.setY(this.getConfig().getDouble("audio.y"));
-        audioLoc.setZ(this.getConfig().getDouble("audio.z"));
-        mapSizeCap = this.getConfig().getInt("size.cap");
-        mapOffset = this.getConfig().getInt("offset");
-        setSize(this.getConfig().getInt("size.width"), this.getConfig().getInt("size.height"));
-        url = this.getConfig().getString("url");
+        this.rlConfig();
         syncTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::syncToAllPlayers, 10000, 10000); // sync every 10 seconds
         this.getCommand("ayunvid").setExecutor(this);
         this.getServer().getPluginManager().registerEvents(this, this);
@@ -52,6 +46,16 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     public void onDisable(){
         this.getServer().getScheduler().cancelTask(syncTask);
         sendToAllPlayers(videoMapCodec.disableVideoBukkit());
+    }
+
+    private void rlConfig() {
+        audioLoc.setX(this.getConfig().getDouble("audio.x"));
+        audioLoc.setY(this.getConfig().getDouble("audio.y"));
+        audioLoc.setZ(this.getConfig().getDouble("audio.z"));
+        mapSizeCap = this.getConfig().getInt("size.cap");
+        mapOffset = this.getConfig().getInt("offset");
+        setSize(this.getConfig().getInt("size.width"), this.getConfig().getInt("size.height"));
+        url = this.getConfig().getString("url");
     }
 
     private void syncToPlayer(Player player) {
@@ -95,6 +99,12 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             return true;
         }
         switch (args[0].toLowerCase()) {
+            case "rl":
+            case "reload":
+                this.reloadConfig();
+                this.rlConfig();
+                MessageHandler.sendPrefixedMessage(sender, "reloaded");
+                break;
             case "h":
             case "help":
                 MessageHandler.sendPrefixedMessage(sender, "usage");
