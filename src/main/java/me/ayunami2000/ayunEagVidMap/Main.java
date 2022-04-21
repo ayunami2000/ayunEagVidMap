@@ -34,7 +34,6 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
     @Override
     public void onEnable(){
-        MessageHandler.initMessages();
         this.saveDefaultConfig();
         this.rlConfig();
         syncTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::syncToAllPlayers, 10000, 10000); // sync every 10 seconds
@@ -49,6 +48,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     }
 
     private void rlConfig() {
+        MessageHandler.initMessages();
         audioLoc.setX(this.getConfig().getDouble("audio.x"));
         audioLoc.setY(this.getConfig().getDouble("audio.y"));
         audioLoc.setZ(this.getConfig().getDouble("audio.z"));
@@ -89,7 +89,9 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        syncToPlayer(event.getPlayer());
+        Player player = event.getPlayer();
+        videoMapCodec.beginPlaybackBukkit(videoMapCodec.getURL(), videoMapCodec.isLoopEnable(), videoMapCodec.getDuration()).send(player);
+        syncToPlayer(player);
     }
 
     @Override
@@ -164,6 +166,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             case "p":
             case "play":
             case "pause":
+                if (args.length > 1 && args[1].equalsIgnoreCase("force")) urlChanged = true;
                 if (urlChanged || videoMapCodec.isPaused()) {
                     if (urlChanged) {
                         urlChanged = false;

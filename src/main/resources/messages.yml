@@ -4,7 +4,7 @@ usage:
   - "&7&o/ayunvid [h|help] &3- Show this message."
   - "&7&o/ayunvid <u|url> [url] &3- Specify the video URL to use, or get the current one. &l(Must be CORS-compatible!)"
   - "&7&o/ayunvid <l|loc|location> [x y z] &3- Specify the location that the audio will come from. If no arguments are supplied, this will default to the sender's position."
-  - "&7&o/ayunvid <p|play|pause> &3- Toggle playback of the video. This also loads the new video after the video URL is changed."
+  - "&7&o/ayunvid <p|play|pause> [force] &3- Toggle playback of the video. This also loads the new video after the video URL is changed. Optionally force a reload of the video."
   - "&7&o/ayunvid <s|size> [<width> <height>] &3- Sets or gets the size of video, in maps. E.g., a width of 2 and a height of 3 would result in a video using 6 maps."
   - "&7&o/ayunvid <rl|reload> &3- Reloads the configuration file."
 currentUrl: "&3Current URL: {0}"
