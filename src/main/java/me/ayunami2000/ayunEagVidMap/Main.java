@@ -11,7 +11,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class Main extends JavaPlugin implements CommandExecutor, Listener {
-    private boolean playing = false;
     private VideoMapPacketCodecBukkit videoMapCodec = null;
     private int[][] mapIds;
     private Location audioLoc;
@@ -21,25 +20,12 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     public void onEnable(){
         this.saveDefaultConfig();
         this.getCommand("ayunvid").setExecutor(this);
-        int width = this.getConfig().getInt("width");
-        int height = this.getConfig().getInt("width");
-        mapIds = new int[height][width];
-        int offset = this.getConfig().getInt("offset");
-        for (int y = 0; y < mapIds.length; y++) {
-            for (int x = 0; x < mapIds[y].length; x++) {
-                mapIds[y][x] = offset++;
-            }
-        }
         audioLoc.setX(this.getConfig().getDouble("audio.x"));
         audioLoc.setY(this.getConfig().getDouble("audio.y"));
         audioLoc.setZ(this.getConfig().getDouble("audio.z"));
-        videoMapCodec = new VideoMapPacketCodecBukkit(mapIds, audioLoc.getX(), audioLoc.getY(), audioLoc.getZ(), 0.5f);
+        setSize(this.getConfig().getInt("width"), this.getConfig().getInt("width"));
         url = this.getConfig().getString("url");
-        this.getServer().getScheduler().scheduleSyncRepeatingTask(this, () -> {
-            for (Player player : this.getServer().getOnlinePlayers()) {
-                VideoMapPacketCodecBukkit.nativeSendPacketToPlayer(player, videoMapCodec.syncPlaybackWithPlayersBukkit());
-            }
-        }, 10000, 10000); // sync every 10 seconds
+        this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::syncToAllPlayers, 10000, 10000); // sync every 10 seconds
     }
 
     @Override
@@ -47,11 +33,36 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         videoMapCodec.disableVideoBukkit();
     }
 
+    private void syncToPlayer(Player player) {
+        VideoMapPacketCodecBukkit.nativeSendPacketToPlayer(player, videoMapCodec.syncPlaybackWithPlayersBukkit());
+    }
+
+    private void syncToAllPlayers() {
+        for (Player player : this.getServer().getOnlinePlayers()) {
+            syncToPlayer(player);
+        }
+    }
+
+    private void sendToAllPlayers(VideoMapPacketCodecBukkit.VideoMapPacket p) {
+        for (Player player : this.getServer().getOnlinePlayers()) {
+            VideoMapPacketCodecBukkit.nativeSendPacketToPlayer(player, p);
+        }
+    }
+
+    private void setSize(int width, int height) {
+        mapIds = new int[height][width];
+        int offset = this.getConfig().getInt("offset");
+        for (int y = 0; y < mapIds.length; y++) {
+            for (int x = 0; x < mapIds[y].length; x++) {
+                mapIds[y][x] = offset++;
+            }
+        }
+        videoMapCodec = new VideoMapPacketCodecBukkit(mapIds, audioLoc.getX(), audioLoc.getY(), audioLoc.getZ(), 0.5f);
+    }
+
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        if (playing) {
-            VideoMapPacketCodecBukkit.nativeSendPacketToPlayer(event.getPlayer(), videoMapCodec.);
-        }
+        syncToPlayer(event.getPlayer());
     }
 
     @Override
@@ -69,19 +80,46 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 }
                 this.getConfig().set("url", args[1]);
                 this.saveConfig();
+                url = args[1];
+                sendToAllPlayers(videoMapCodec.beginPlaybackBukkit(url, true, Integer.MAX_VALUE / 1000.0f));
                 sender.sendMessage("seturl");
                 break;
             case "l":
             case "loc":
             case "location":
+                if (args.length < 4) {
+                    sender.sendMessage("not enough args, using current location...");
+                    if (!(sender instanceof Player)) {
+                        sender.sendMessage("you are not in game! you must specify the coordinates to use this command from console...");
+                        break;
+                    }
+                    audioLoc = ((Player) sender).getLocation();
+                } else {
+                    double x,y,z;
+                    try {
+                        x = Double.parseDouble(args[1]);
+                        y = Double.parseDouble(args[2]);
+                        z = Double.parseDouble(args[3]);
+                    } catch(NumberFormatException e) {
+                        sender.sendMessage("one or more of the provided arguments is not a number!");
+                        break;
+                    }
+                    audioLoc.setX(x);
+                    audioLoc.setY(y);
+                    audioLoc.setZ(z);
+                }
+                syncToAllPlayers();
                 sender.sendMessage("set location of audio");
                 break;
             case "p":
             case "play":
             case "pause":
                 sender.sendMessage("resuming & loading if needed, or pausing");
-
-                new VideoMapPacketCodecBukkit()
+                if (videoMapCodec.isPaused()) {
+                    sendToAllPlayers(videoMapCodec.beginPlaybackBukkit(url, true, Integer.MAX_VALUE / 1000.0f));
+                } else {
+                    sendToAllPlayers(videoMapCodec.setPausedBukkit(true));
+                }
                 break;
             case "s":
             case "size":
@@ -101,6 +139,9 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 this.getConfig().set("width", width);
                 this.getConfig().set("height", height);
                 this.saveConfig();
+                sendToAllPlayers(videoMapCodec.disableVideoBukkit());
+                setSize(width, height);
+                syncToAllPlayers();
                 sender.sendMessage("set width & height");
                 break;
             default:
