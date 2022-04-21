@@ -1,5 +1,6 @@
 package me.ayunami2000.ayunEagVidMap;
 
+import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -11,27 +12,39 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
 public class Main extends JavaPlugin implements CommandExecutor, Listener {
-    //todo: add queue command + store audio loc world & dont send to players in other worlds
+    //todo: add queue command + store audio loc world & dont send to players in other worlds???
+    //todo: also when holding video map play audio at player location for that player
+
+    public static Main plugin;
 
     private VideoMapPacketCodecBukkit videoMapCodec = null;
     private Vector audioLoc = new Vector(0, 100, 0);
     private String url = "";
     private boolean urlChanged = true;
+    private int syncTask = -1;
+
+    @Override
+    public void onLoad(){
+        plugin = this;
+    }
 
     @Override
     public void onEnable(){
+        MessageHandler.initMessages();
         this.saveDefaultConfig();
-        this.getCommand("ayunvid").setExecutor(this);
         audioLoc.setX(this.getConfig().getDouble("audio.x"));
         audioLoc.setY(this.getConfig().getDouble("audio.y"));
         audioLoc.setZ(this.getConfig().getDouble("audio.z"));
         setSize(this.getConfig().getInt("width"), this.getConfig().getInt("width"));
         url = this.getConfig().getString("url");
-        this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::syncToAllPlayers, 10000, 10000); // sync every 10 seconds
+        syncTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::syncToAllPlayers, 10000, 10000); // sync every 10 seconds
+        this.getCommand("ayunvid").setExecutor(this);
+        this.getServer().getPluginManager().registerEvents(this, this);
     }
 
     @Override
     public void onDisable(){
+        this.getServer().getScheduler().cancelTask(syncTask);
         sendToAllPlayers(videoMapCodec.disableVideoBukkit());
     }
 
@@ -66,51 +79,56 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0){
-            sender.sendMessage("usage");
+            MessageHandler.sendPrefixedMessage(sender, "usage");
             return true;
         }
         switch (args[0].toLowerCase()) {
+            case "h":
+            case "help":
+                MessageHandler.sendPrefixedMessage(sender, "usage");
+                break;
             case "u":
             case "url":
                 if (args.length < 2) {
-                    sender.sendMessage("no url specified!");
+                    MessageHandler.sendPrefixedMessage(sender, "currentUrl", url);
                     break;
                 }
                 this.getConfig().set("url", args[1]);
                 this.saveConfig();
                 url = args[1];
                 urlChanged = true;
-                sender.sendMessage("seturl");
+                MessageHandler.sendPrefixedMessage(sender, "setUrl");
                 break;
-            case "a":
-            case "aud":
-            case "audio":
-            case "audloc":
-            case "audioloc":
-            case "audiolocation":
             case "l":
             case "loc":
             case "location":
                 if (args.length < 4) {
-                    sender.sendMessage("not enough args, using current location...");
-                    if (!(sender instanceof Player)) {
-                        sender.sendMessage("you are not in game! you must specify the coordinates to use this command from console...");
+                    if(sender instanceof Player) {
+                        MessageHandler.sendPrefixedMessage(sender, "locCurrent");
+                        audioLoc = ((Player) sender).getLocation().toVector();
+                    } else if (sender instanceof BlockCommandSender) {
+                        MessageHandler.sendPrefixedMessage(sender, "locCurrent");
+                        audioLoc = ((BlockCommandSender) sender).getBlock().getLocation().toVector().clone().add(new Vector(0.5, 0.5, 0.5));
+                    } else {
+                        MessageHandler.sendPrefixedMessage(sender, "locFromConsole");
                         break;
                     }
-                    audioLoc = ((Player) sender).getLocation().toVector();
                 } else {
                     double x,y,z;
+                    int offendingIndex = 1;
                     try {
                         x = Double.parseDouble(args[1]);
+                        offendingIndex++;
                         y = Double.parseDouble(args[2]);
+                        offendingIndex++;
                         z = Double.parseDouble(args[3]);
                     } catch(NumberFormatException e) {
-                        sender.sendMessage("one or more of the provided arguments is not a number!");
+                        MessageHandler.sendPrefixedMessage(sender, "notANumber", args[offendingIndex]);
                         break;
                     }
-                    audioLoc.setX(x);
-                    audioLoc.setY(y);
-                    audioLoc.setZ(z);
+                    audioLoc.setX(x + 0.5);
+                    audioLoc.setY(y + 0.5);
+                    audioLoc.setZ(z + 0.5);
                 }
                 this.getConfig().set("audio.x", audioLoc.getX());
                 this.getConfig().set("audio.y", audioLoc.getY());
@@ -119,19 +137,22 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 float ct = videoMapCodec.getPlaybackTime();
                 sendToAllPlayers(videoMapCodec.moveAudioSourceBukkit(audioLoc.getX(), audioLoc.getY(), audioLoc.getZ(), 0.5f));
                 sendToAllPlayers(videoMapCodec.setPlaybackTimeBukkit(ct));
-                sender.sendMessage("set location of audio");
+                MessageHandler.sendPrefixedMessage(sender, "locSet", audioLoc);
                 break;
             case "p":
             case "play":
             case "pause":
-                sender.sendMessage("resuming & loading if needed, or pausing");
                 if (urlChanged || videoMapCodec.isPaused()) {
                     if (urlChanged) {
                         urlChanged = false;
+                        MessageHandler.sendPrefixedMessage(sender, "playing");
                         sendToAllPlayers(videoMapCodec.beginPlaybackBukkit(url, true, Integer.MAX_VALUE / 1000.0f));
+                    } else {
+                        MessageHandler.sendPrefixedMessage(sender, "resuming");
                     }
                     sendToAllPlayers(videoMapCodec.setPausedBukkit(false));
                 } else {
+                    MessageHandler.sendPrefixedMessage(sender, "pausing");
                     sendToAllPlayers(videoMapCodec.setPausedBukkit(true));
                 }
                 break;
