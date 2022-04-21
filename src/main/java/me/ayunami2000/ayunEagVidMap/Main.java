@@ -14,6 +14,7 @@ import org.bukkit.util.Vector;
 public class Main extends JavaPlugin implements CommandExecutor, Listener {
     //todo: add queue command + store audio loc world & dont send to players in other worlds???
     //todo: also when holding video map play audio at player location for that player
+    //todo: reload config command
 
     public static Main plugin;
 
@@ -22,6 +23,9 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     private String url = "";
     private boolean urlChanged = true;
     private int syncTask = -1;
+    private final int[] mapSize = {1, 1};
+    private int mapSizeCap = 10;
+    private int mapOffset = 0;
 
     @Override
     public void onLoad(){
@@ -35,7 +39,9 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         audioLoc.setX(this.getConfig().getDouble("audio.x"));
         audioLoc.setY(this.getConfig().getDouble("audio.y"));
         audioLoc.setZ(this.getConfig().getDouble("audio.z"));
-        setSize(this.getConfig().getInt("width"), this.getConfig().getInt("width"));
+        mapSizeCap = this.getConfig().getInt("size.cap");
+        mapOffset = this.getConfig().getInt("offset");
+        setSize(this.getConfig().getInt("size.width"), this.getConfig().getInt("size.height"));
         url = this.getConfig().getString("url");
         syncTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::syncToAllPlayers, 10000, 10000); // sync every 10 seconds
         this.getCommand("ayunvid").setExecutor(this);
@@ -61,8 +67,14 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     }
 
     private void setSize(int width, int height) {
+        if (mapSizeCap > 0) {
+            width = Math.min(width, mapSizeCap);
+            height = Math.min(height, mapSizeCap);
+        }
+        mapSize[0] = width;
+        mapSize[1] = height;
         int[][] mapIds = new int[height][width];
-        int offset = this.getConfig().getInt("offset");
+        int offset = mapOffset;
         for (int y = 0; y < mapIds.length; y++) {
             for (int x = 0; x < mapIds[y].length; x++) {
                 mapIds[y][x] = offset++;
@@ -123,7 +135,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                         offendingIndex++;
                         z = Double.parseDouble(args[3]);
                     } catch(NumberFormatException e) {
-                        MessageHandler.sendPrefixedMessage(sender, "notANumber", args[offendingIndex]);
+                        MessageHandler.sendPrefixedMessage(sender, "notANumber", args[offendingIndex], MessageHandler.getMessage("double"));
                         break;
                     }
                     audioLoc.setX(x + 0.5);
@@ -159,28 +171,30 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             case "s":
             case "size":
                 if (args.length < 3) {
-                    sender.sendMessage("must specify width & height to set! current vals are...");
+                    MessageHandler.sendPrefixedMessage(sender, "currentSize", mapSize[0], mapSize[1], mapSize[0] * mapSize[1]);
                     break;
                 }
                 int width;
                 int height;
+                int offendingIndex = 1;
                 try {
                     width = Math.max(1, Integer.parseInt(args[1]));
+                    offendingIndex++;
                     height = Math.max(1, Integer.parseInt(args[2]));
                 } catch(NumberFormatException e) {
-                    sender.sendMessage("");
+                    MessageHandler.sendPrefixedMessage(sender, "notANumber", args[offendingIndex], MessageHandler.getMessage("integer"));
                     break;
                 }
-                this.getConfig().set("width", width);
-                this.getConfig().set("height", height);
-                this.saveConfig();
                 sendToAllPlayers(videoMapCodec.disableVideoBukkit());
                 setSize(width, height);
                 syncToAllPlayers();
-                sender.sendMessage("set width & height");
+                this.getConfig().set("width", mapSize[0]);
+                this.getConfig().set("height", mapSize[1]);
+                this.saveConfig();
+                MessageHandler.sendPrefixedMessage(sender, "setSize", mapSize[0], mapSize[1], mapSize[0] * mapSize[1]);
                 break;
             default:
-                sender.sendMessage("invalid");
+                MessageHandler.sendPrefixedMessage(sender, "invalidUsage");
         }
         return true;
     }

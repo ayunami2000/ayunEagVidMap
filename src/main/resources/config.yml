@@ -1,8 +1,11 @@
 # URL of video to play
 url: ""
-# screen size
-width: 3
-height: 2
+# screen size, in maps
+size:
+  width: 1
+  height: 1
+  # maximum width/height accepted internally (set to 0 or less to disable)
+  cap: 10
 # map ID offset
 offset: 0
 # audio location
