@@ -89,9 +89,11 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        videoMapCodec.beginPlaybackBukkit(videoMapCodec.getURL(), videoMapCodec.isLoopEnable(), videoMapCodec.getDuration()).send(player);
-        syncToPlayer(player);
+        if (videoMapCodec != null && videoMapCodec.getURL() != null) {
+            Player player = event.getPlayer();
+            videoMapCodec.beginPlaybackBukkit(videoMapCodec.getURL(), videoMapCodec.isLoopEnable(), videoMapCodec.getDuration()).send(player);
+            syncToPlayer(player);
+        }
     }
 
     @Override
