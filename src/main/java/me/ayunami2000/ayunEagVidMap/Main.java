@@ -200,8 +200,8 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 sendToAllPlayers(videoMapCodec.disableVideoBukkit());
                 setSize(width, height);
                 syncToAllPlayers();
-                this.getConfig().set("width", mapSize[0]);
-                this.getConfig().set("height", mapSize[1]);
+                this.getConfig().set("size.width", mapSize[0]);
+                this.getConfig().set("size.height", mapSize[1]);
                 this.saveConfig();
                 MessageHandler.sendPrefixedMessage(sender, "setSize", mapSize[0], mapSize[1], mapSize[0] * mapSize[1]);
                 break;
