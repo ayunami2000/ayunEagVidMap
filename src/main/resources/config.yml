@@ -8,6 +8,8 @@ size:
   cap: 10
 # map ID offset
 offset: 0
+# sync interval, in seconds
+interval: 10
 # audio location
 audio:
   x: 0

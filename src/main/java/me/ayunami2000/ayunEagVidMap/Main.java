@@ -25,6 +25,8 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     private final int[] mapSize = {1, 1};
     private int mapSizeCap = 10;
     private int mapOffset = 0;
+    private int interval = 10;
+    private int syncTask = -1;
 
     @Override
     public void onLoad(){
@@ -44,6 +46,17 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         sendToAllPlayers(videoMapCodec.disableVideoBukkit());
     }
 
+    private void stopSyncTask() {
+        if (syncTask != -1) {
+            this.getServer().getScheduler().cancelTask(syncTask);
+            syncTask = -1;
+        }
+    }
+
+    private void createSyncTask() {
+        if (interval > 0) syncTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::syncToAllPlayers, 0, interval * 20L);
+    }
+
     private void rlConfig() {
         MessageHandler.initMessages();
         audioLoc.setX(this.getConfig().getDouble("audio.x"));
@@ -53,6 +66,9 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         mapOffset = this.getConfig().getInt("offset");
         setSize(this.getConfig().getInt("size.width"), this.getConfig().getInt("size.height"));
         url = this.getConfig().getString("url");
+        interval = this.getConfig().getInt("interval");
+        stopSyncTask();
+        createSyncTask();
     }
 
     private void syncToPlayer(Player player) {
@@ -204,6 +220,22 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 this.getConfig().set("size.height", mapSize[1]);
                 this.saveConfig();
                 MessageHandler.sendPrefixedMessage(sender, "setSize", mapSize[0], mapSize[1], mapSize[0] * mapSize[1]);
+                break;
+            case "i":
+            case "int":
+            case "interval":
+                if (args.length < 2) {
+                    MessageHandler.sendPrefixedMessage(sender, "currentInterval", interval);
+                    break;
+                }
+                try {
+                    interval = Math.max(0, Integer.parseInt(args[1]));
+                    stopSyncTask();
+                    createSyncTask();
+                    MessageHandler.sendPrefixedMessage(sender, "setInterval");
+                } catch (NumberFormatException e) {
+                    MessageHandler.sendPrefixedMessage(sender, "notANumber", args[1], "integer");
+                }
                 break;
             default:
                 MessageHandler.sendPrefixedMessage(sender, "invalidUsage");
