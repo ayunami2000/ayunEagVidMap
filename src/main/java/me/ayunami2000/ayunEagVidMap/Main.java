@@ -22,7 +22,6 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     private Vector audioLoc = new Vector(0, 100, 0);
     private String url = "";
     private boolean urlChanged = true;
-    private int syncTask = -1;
     private final int[] mapSize = {1, 1};
     private int mapSizeCap = 10;
     private int mapOffset = 0;
@@ -36,14 +35,12 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     public void onEnable(){
         this.saveDefaultConfig();
         this.rlConfig();
-        syncTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::syncToAllPlayers, 10000, 10000); // sync every 10 seconds
         this.getCommand("ayunvid").setExecutor(this);
         this.getServer().getPluginManager().registerEvents(this, this);
     }
 
     @Override
     public void onDisable(){
-        this.getServer().getScheduler().cancelTask(syncTask);
         sendToAllPlayers(videoMapCodec.disableVideoBukkit());
     }
 
