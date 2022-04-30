@@ -15,3 +15,7 @@ audio:
   x: 0
   y: 100
   z: 0
+# image mode
+image: false
+# autoplay
+autoplay: false

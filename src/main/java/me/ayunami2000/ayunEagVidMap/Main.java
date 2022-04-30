@@ -1,9 +1,12 @@
 package me.ayunami2000.ayunEagVidMap;
 
+import net.minecraft.server.v1_5_R3.Packet;
+import net.minecraft.server.v1_5_R3.Packet131ItemData;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.craftbukkit.v1_5_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,7 +21,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
     public static Main plugin;
 
-    private VideoMapPacketCodecBukkit videoMapCodec = null;
+    private VideoMapPacketCodec videoMapCodec = null;
     private Vector audioLoc = new Vector(0, 100, 0);
     private String url = "";
     private boolean urlChanged = true;
@@ -27,6 +30,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     private int mapOffset = 0;
     private int interval = 10;
     private int syncTask = -1;
+    private boolean imageMode = false;
 
     @Override
     public void onLoad(){
@@ -43,7 +47,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
     @Override
     public void onDisable(){
-        sendToAllPlayers(videoMapCodec.disableVideoBukkit());
+        if (videoMapCodec.mapIds != null) sendToAllPlayers(videoMapCodec.disableVideo());
     }
 
     private void stopSyncTask() {
@@ -67,20 +71,21 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         setSize(this.getConfig().getInt("size.width"), this.getConfig().getInt("size.height"));
         url = this.getConfig().getString("url");
         interval = this.getConfig().getInt("interval");
+        imageMode = this.getConfig().getBoolean("image");
         stopSyncTask();
         createSyncTask();
     }
 
     private void syncToPlayer(Player player) {
-        videoMapCodec.syncPlaybackWithPlayersBukkit().send(player);
+        freePacketSender(player, videoMapCodec.syncPlaybackWithPlayers());
     }
 
     private void syncToAllPlayers() {
-        videoMapCodec.syncPlaybackWithPlayersBukkit().send(this.getServer().getOnlinePlayers());
+        sendToAllPlayers(videoMapCodec.syncPlaybackWithPlayers());
     }
 
-    private void sendToAllPlayers(VideoMapPacketCodecBukkit.VideoMapPacket p) {
-        p.send(this.getServer().getOnlinePlayers());
+    private void sendToAllPlayers(byte[] p) {
+        for (Player player : this.getServer().getOnlinePlayers()) freePacketSender(player, p);
     }
 
     private void setSize(int width, int height) {
@@ -97,14 +102,14 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 mapIds[y][x] = offset++;
             }
         }
-        videoMapCodec = new VideoMapPacketCodecBukkit(mapIds, audioLoc.getX(), audioLoc.getY(), audioLoc.getZ(), 0.5f);
+        videoMapCodec = new VideoMapPacketCodec(mapIds, audioLoc.getX(), audioLoc.getY(), audioLoc.getZ(), 0.5f);
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         if (videoMapCodec != null && videoMapCodec.getURL() != null) {
             Player player = event.getPlayer();
-            videoMapCodec.beginPlaybackBukkit(videoMapCodec.getURL(), videoMapCodec.isLoopEnable(), videoMapCodec.getDuration()).send(player);
+            freePacketSender(player, videoMapCodec.beginPlayback(videoMapCodec.getURL() == null ? "" : videoMapCodec.getURL(), videoMapCodec.isLoopEnable(), videoMapCodec.getDuration()));
             syncToPlayer(player);
         }
     }
@@ -116,6 +121,15 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             return true;
         }
         switch (args[0].toLowerCase()) {
+            case "m":
+            case "mode":
+                sendToAllPlayers(videoMapCodec.disableVideo());
+                imageMode = !imageMode;
+                sendToAllPlayers(videoMapCodec.beginPlayback(videoMapCodec.getURL() == null ? "" : videoMapCodec.getURL(), videoMapCodec.isLoopEnable(), videoMapCodec.getDuration()));
+                this.getConfig().set("image", imageMode);
+                this.saveConfig();
+                MessageHandler.sendPrefixedMessage(sender, "mode", imageMode ? MessageHandler.getMessage("image") : MessageHandler.getMessage("video"));
+                break;
             case "rl":
             case "reload":
                 this.reloadConfig();
@@ -174,8 +188,8 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 this.getConfig().set("audio.z", audioLoc.getZ());
                 this.saveConfig();
                 float ct = videoMapCodec.getPlaybackTime();
-                sendToAllPlayers(videoMapCodec.moveAudioSourceBukkit(audioLoc.getX(), audioLoc.getY(), audioLoc.getZ(), 0.5f));
-                sendToAllPlayers(videoMapCodec.setPlaybackTimeBukkit(ct));
+                sendToAllPlayers(videoMapCodec.moveAudioSource(audioLoc.getX(), audioLoc.getY(), audioLoc.getZ(), 0.5f));
+                sendToAllPlayers(videoMapCodec.setPlaybackTime(ct));
                 MessageHandler.sendPrefixedMessage(sender, "locSet", audioLoc);
                 break;
             case "p":
@@ -186,14 +200,14 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                     if (urlChanged) {
                         urlChanged = false;
                         MessageHandler.sendPrefixedMessage(sender, "playing");
-                        sendToAllPlayers(videoMapCodec.beginPlaybackBukkit(url, true, Integer.MAX_VALUE / 1000.0f));
+                        sendToAllPlayers(videoMapCodec.beginPlayback(url, true, Integer.MAX_VALUE / 1000.0f));
                     } else {
                         MessageHandler.sendPrefixedMessage(sender, "resuming");
                     }
-                    sendToAllPlayers(videoMapCodec.setPausedBukkit(false));
+                    sendToAllPlayers(videoMapCodec.setPaused(false));
                 } else {
                     MessageHandler.sendPrefixedMessage(sender, "pausing");
-                    sendToAllPlayers(videoMapCodec.setPausedBukkit(true));
+                    sendToAllPlayers(videoMapCodec.setPaused(true));
                 }
                 break;
             case "s":
@@ -213,7 +227,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                     MessageHandler.sendPrefixedMessage(sender, "notANumber", args[offendingIndex], MessageHandler.getMessage("integer"));
                     break;
                 }
-                sendToAllPlayers(videoMapCodec.disableVideoBukkit());
+                sendToAllPlayers(videoMapCodec.disableVideo());
                 setSize(width, height);
                 syncToAllPlayers();
                 this.getConfig().set("size.width", mapSize[0]);
@@ -241,5 +255,16 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 MessageHandler.sendPrefixedMessage(sender, "invalidUsage");
         }
         return true;
+    }
+
+    private void freePacketSender(Player player, byte[] packet) {
+        nativeSendPacketToPlayer(player, new Packet131ItemData((short)(104 + (imageMode ? 1 : 0)), (short)0, packet));
+    }
+
+    private static void nativeSendPacketToPlayer(Player player, Object obj) {
+        if(obj == null) {
+            return;
+        }
+        ((CraftPlayer)player).getHandle().playerConnection.sendPacket((Packet)obj);
     }
 }

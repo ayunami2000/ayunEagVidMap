@@ -40,7 +40,7 @@ public class VideoMapPacketCodec {
 		this.requiresFullResetPacket = true;
 		this.isDisabled = true;
 	}
-	
+
 	/**
 	 * @param mapIds 2D grid of map IDs that make up the screen (mapIds[y][x])
 	 * @param posX audio playback X coord
@@ -48,7 +48,14 @@ public class VideoMapPacketCodec {
 	 * @param posZ audio playback Z coord
 	 */
 	public VideoMapPacketCodec(int[][] mapIds, double posX, double posY, double posZ) {
-		this(mapIds, posX, posY, posZ, 1.0f);
+		this(mapIds, posX, posY, posZ, 0.5f);
+	}
+
+	/**
+	 * @param mapIds 2D grid of map IDs that make up the screen (mapIds[y][x])
+	 */
+	public VideoMapPacketCodec(int[][] mapIds) {
+		this(mapIds, 0, 100, 0, 0.5f);
 	}
 
 	/**
@@ -119,7 +126,7 @@ public class VideoMapPacketCodec {
 				}
 				str.write(frameRate);
 				str.writeInt(duration);
-				str.writeUTF(url);
+				str.writeUTF(url == null ? "" : url);
 			}
 			
 			if(requiresFullResetPacket || requiresPositionPacket) {
@@ -163,7 +170,7 @@ public class VideoMapPacketCodec {
 		}
 		return t;
 	}
-	
+
 	/**
 	 * @param url URL to an MP4 or other HTML5 supported video file
 	 * @param loop If the video file should loop
@@ -179,6 +186,40 @@ public class VideoMapPacketCodec {
 		this.requiresFullResetPacket = true;
 		this.isDisabled = false;
 		return syncPlaybackWithPlayers();
+	}
+
+	/**
+	 * @param url URL to an MP4 or other HTML5 supported video file
+	 * @return packet to send to players
+	 */
+	public byte[] beginPlayback(String url) {
+		this.url = url;
+		this.loop = false;
+		this.duration = 0;
+		this.pauseTimestamp = 0l;
+		this.timestamp = 0l;
+		this.requiresFullResetPacket = true;
+		this.isDisabled = false;
+		return syncPlaybackWithPlayers();
+	}
+	
+	/**
+	 * Tells the browser to pre-load a URL to a video to be played in the future
+	 * @param url the URL of the video
+	 * @param ttl the amount of time the video should stay loaded
+	 * @return packet to send to players
+	 */
+	public static byte[] bufferVideo(String url, int ttl) {
+		try {
+			ByteArrayOutputStream bao = new ByteArrayOutputStream();
+			DataOutputStream str = new DataOutputStream(bao);
+			str.write(8);
+			str.writeInt(ttl);
+			str.writeUTF(url);
+			return bao.toByteArray();
+		}catch(IOException e) {
+			throw new RuntimeException("serialization error", e);
+		}
 	}
 	
 	/**
@@ -252,6 +293,13 @@ public class VideoMapPacketCodec {
 	 */
 	public boolean isPaused() {
 		return pauseTimestamp > 0l;
+	}
+	
+	/**
+	 * @return current server-side volume
+	 */
+	public float getVolume() {
+		return volume;
 	}
 	
 }
